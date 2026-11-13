@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPERACIÓN SANTURBÁN: CERO TOLERANCIA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1014; color: #e8efe9;
+    font-family: "Consolas", "Lucida Console", "Courier New", monospace; user-select: none; }
+  canvas { display: block; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  .panel { position: absolute; background: rgba(8, 14, 18, .6); border: 1px solid rgba(160, 200, 180, .26);
+    padding: 9px 11px; font-size: 12px; line-height: 1.5; text-shadow: 0 1px 2px #000; }
+  #objectives { top: 14px; left: 14px; width: 340px; }
+  #objectives h3 { font-size: 12px; letter-spacing: 2px; color: #ffc94d; margin-bottom: 5px; }
+  #objectives li { list-style: none; padding-left: 18px; position: relative; }
+  #objectives li::before { content: "▢"; position: absolute; left: 0; color: #9fd8b5; }
+  #objectives li.done { text-decoration: line-through; color: #7d8c86; }
+  #objectives li.done::before { content: "▣"; color: #55d58a; }
+  #objectives li.opt { color: #a9c4cf; }
+  #keys { top: 14px; right: 14px; width: 262px; font-size: 10.5px; line-height: 1.45; }
+  #keys h3 { font-size: 11px; letter-spacing: 2px; color: #9fd8b5; margin-bottom: 3px; }
+  #keys b { color: #ffc94d; font-weight: normal; }
+  #bars { left: 14px; bottom: 14px; width: 270px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1px; }
+  .bar { height: 9px; background: rgba(255,255,255,.12); margin: 2px 0 7px; border: 1px solid rgba(255,255,255,.2); }
+  .bar > div { height: 100%; width: 100%; transition: width .12s linear; }
+  #healthFill { background: linear-gradient(90deg, #c8372d, #ff6a4d); }
+  #staminaFill { background: linear-gradient(90deg, #2f8fc2, #7fe0ff); }
+  #envInfo { font-size: 10px; color: #a9c4cf; letter-spacing: 1px; }
+  #stanceInfo { font-size: 11px; color: #ffc94d; letter-spacing: 1px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  #minimap { position: absolute; left: 298px; bottom: 14px; width: 150px; height: 150px; border: 1px solid rgba(160,200,180,.4);
+    background: rgba(8,14,18,.6); border-radius: 4px; }
+  #ammo { right: 14px; bottom: 14px; text-align: right; min-width: 250px; }
+  #weaponName { font-size: 11px; letter-spacing: 1px; color: #9fd8b5; }
+  #ammoCount { font-size: 30px; color: #fff; letter-spacing: 2px; }
+  #ammoCount small { font-size: 15px; color: #9fb3ad; }
+  #ammoState { font-size: 11px; color: #ffc94d; height: 14px; letter-spacing: 1px; }
+  #slots { display: flex; gap: 5px; justify-content: flex-end; margin-top: 4px; font-size: 10px; }
+  #slots span { border: 1px solid rgba(255,255,255,.25); padding: 1px 6px; color: #8fa39c; }
+  #slots span.on { border-color: #ffc94d; color: #ffc94d; background: rgba(255,201,77,.12); }
+  #stealth { top: 14px; left: 50%; transform: translateX(-50%); width: 250px; text-align: center; }
+  #stealth .bar { margin-bottom: 0; }
+  #stealthFill { background: linear-gradient(90deg, #e6c229, #ff3b30); width: 0; }
+  #compass { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: 3px; color: #dfe9e4; text-shadow: 0 1px 3px #000; }
+  #timer { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); font-size: 44px; font-weight: bold;
+    color: #ff3b30; text-shadow: 0 0 14px rgba(255, 40, 30, .8), 0 2px 3px #000; display: none; letter-spacing: 3px; }
+  #timer small { display: block; font-size: 11px; letter-spacing: 3px; text-align: center; color: #ffb0a8; }
+  #message { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-size: 17px; letter-spacing: 2px;
+    text-align: center; color: #fff; text-shadow: 0 0 10px #000, 0 2px 4px #000; opacity: 0; transition: opacity .35s; max-width: 80vw; }
+  #prompt { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); font-size: 15px; padding: 6px 14px;
+    background: rgba(8,14,18,.7); border: 1px solid #ffc94d; color: #ffc94d; display: none; letter-spacing: 1px; white-space: nowrap; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; clip-path: polygon(0 0,100% 0,100% 32%,0 32%,0 68%,100% 68%,100% 100%,0 100%); }
+  #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; clip-path: polygon(0 0,32% 0,32% 100%,68% 100%,68% 0,100% 0,100% 100%,0 100%); }
+  #crosshair.dot::before { left: 9px; top: 9px; width: 4px; height: 4px; border-radius: 50%; background: #ff2a1f; clip-path: none; box-shadow: 0 0 6px #ff2a1f; }
+  #crosshair.dot::after { display: none; }
+  #hitmarker { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; opacity: 0;
+    background: linear-gradient(45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%),
+                linear-gradient(-45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%); }
+  #hitmarker.kill { filter: drop-shadow(0 0 3px #ff3b30); }
+  .waypoint { position: absolute; transform: translate(-50%, -100%); font-size: 10.5px; text-align: center; color: #6ff3ff;
+    text-shadow: 0 0 6px #003b44, 0 1px 2px #000; display: none; white-space: nowrap; }
+  .waypoint::before { content: "◆"; display: block; font-size: 15px; }
+  .waypoint.ext { color: #6dff8a; } .waypoint.opt { color: #c9d6dd; opacity: .8; }
+
+  /* ---------- Subtítulos / voces ---------- */
+  #subs { position: fixed; left: 50%; bottom: 176px; transform: translateX(-50%); max-width: 78vw; text-align: center; font-size: 17px;
+    line-height: 1.4; padding: 7px 16px; background: rgba(0,0,0,.62); color: #fff; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 6; border-radius: 3px; }
+  #subs b { font-weight: normal; letter-spacing: 1px; margin-right: 6px; }
+  #subs.radio b { color: #7fe0ff; } #subs.enemy b { color: #ff6a4d; } #subs.narr b { color: #ffc94d; } #subs.eng b { color: #b6ff9a; }
+  #subs.enemy { font-style: italic; }
+
+  /* ---------- Intro cinemática ---------- */
+  #cine { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 5; }
+  #cine .barT, #cine .barB { position: absolute; left: 0; right: 0; height: 11vh; background: #000; }
+  #cine .barT { top: 0; } #cine .barB { bottom: 0; }
+  #cineLoc { position: absolute; left: 4vw; top: 14vh; font-size: 15px; letter-spacing: 3px; color: #ffc94d; text-shadow: 0 2px 4px #000; white-space: pre-line; line-height: 1.6; }
+  #cineSkip { position: absolute; right: 3vw; bottom: 3.6vh; font-size: 12px; letter-spacing: 2px; color: #9fb3ad; }
+  body.cine #subs { bottom: 14vh; }
+
+  /* ---------- Mira telescópica ---------- */
+  #scope { position: absolute; inset: 0; display: none;
+    background: radial-gradient(circle at 50% 50%, rgba(120,170,140,.05) 0, rgba(0,0,0,.08) 34vh, rgba(0,0,0,.75) 38vh, #000 40.5vh); }
+  #reticle { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  #reticle .h, #reticle .v { position: absolute; background: #0a0a0a; }
+  #reticle .h { left: -38vh; width: 76vh; height: 1px; top: 0; }
+  #reticle .v { top: -38vh; height: 76vh; width: 1px; left: 0; }
+  #reticle .post { position: absolute; background: #0a0a0a; }
+  #reticle .pl { left: -38vh; width: 24vh; height: 4px; top: -2px; }
+  #reticle .pr { left: 14vh; width: 24vh; height: 4px; top: -2px; }
+  #reticle .pb { top: 24vh; height: 14vh; width: 4px; left: -2px; }
+  #reticle .dot { position: absolute; width: 4px; height: 4px; left: -2px; top: -2px; border-radius: 50%; background: #ff2a1f; }
+  .drop { position: absolute; height: 1px; background: #0a0a0a; }
+  .drop span { position: absolute; left: 100%; top: -7px; margin-left: 5px; font-size: 10px; color: #0a0a0a; font-weight: bold; }
+  #rangeInfo { position: absolute; left: 50%; top: calc(50% + 30vh); transform: translateX(-50%); font-size: 12px;
+    color: #9dff9d; text-shadow: 0 0 4px #000; letter-spacing: 1px; white-space: nowrap; }
+
+  #damage { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, transparent 45%, rgba(200, 20, 10, .75) 100%); }
+  #cold { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, transparent 50%, rgba(170, 215, 255, .5) 100%); }
+  #flash { position: absolute; inset: 0; opacity: 0; background: #fff3d0; }
+
+  /* ---------- Pantallas ---------- */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(14, 26, 30, .86), rgba(3, 6, 8, .97)); text-align: center; padding: 20px; z-index: 10; overflow-y: auto; }
+  .screen h1 { font-family: Impact, "Arial Narrow Bold", sans-serif; font-size: clamp(28px, 5vw, 62px); letter-spacing: 4px;
+    color: #f1f4ee; text-shadow: 0 0 24px rgba(255, 190, 60, .35); font-weight: normal; }
+  .screen h1 span { color: #ffc94d; display: block; font-size: .5em; letter-spacing: 12px; margin-top: 4px; }
+  .screen h2 { font-size: 15px; letter-spacing: 4px; color: #ffc94d; font-weight: normal; margin-bottom: 8px; }
+  .screen p { max-width: 740px; margin: 14px auto 0; font-size: 14px; line-height: 1.6; color: #c5d3cd; }
+  .screen .keys { display: grid; grid-template-columns: auto auto auto auto; gap: 3px 16px; text-align: left; margin: 16px auto 0;
+    font-size: 12px; border: 1px solid rgba(160,200,180,.3); padding: 12px 18px; background: rgba(0,0,0,.35); }
+  .screen .keys b { color: #ffc94d; font-weight: normal; }
+  .btn { margin-top: 20px; padding: 13px 38px; font-family: inherit; font-size: 17px; letter-spacing: 3px; cursor: pointer;
+    color: #0b1014; background: #ffc94d; border: none; pointer-events: auto; transition: transform .1s, background .15s; }
+  .btn:hover { background: #ffe08a; transform: scale(1.04); }
+  .btn:disabled { background: #6b6650; cursor: wait; transform: none; }
+  #loadout, #pause, #end, #intel { display: none; }
+  #kits { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  .kit { width: 250px; padding: 16px; text-align: left; background: rgba(0,0,0,.4); border: 1px solid rgba(160,200,180,.35); cursor: pointer;
+    transition: transform .12s, border-color .12s, background .12s; font-size: 12.5px; line-height: 1.55; color: #c5d3cd; }
+  .kit:hover { transform: translateY(-4px); border-color: #ffc94d; background: rgba(255,201,77,.08); }
+  .kit h3 { color: #ffc94d; font-size: 15px; letter-spacing: 2px; margin-bottom: 6px; font-weight: normal; }
+  .kit i { color: #9dff9d; font-style: normal; }
+  #end.win h1 { color: #7dffa0; text-shadow: 0 0 24px rgba(80, 255, 140, .4); }
+  #end.lose h1 { color: #ff5a4d; text-shadow: 0 0 24px rgba(255, 60, 40, .5); }
+  #stats { display: grid; grid-template-columns: auto auto; gap: 4px 26px; margin-top: 18px; font-size: 14px; text-align: left; }
+  #stats b { color: #ffc94d; font-weight: normal; text-align: right; }
+  #loadError { color: #ff8a80; display: none; margin-top: 14px; font-size: 13px; }
+  #voiceNote { font-size: 11px; color: #8fa39c; margin-top: 12px; }
+
+  /* ---------- Panel de inteligencia (química) ---------- */
+  #intel { background: rgba(3, 8, 10, .9); z-index: 8; pointer-events: none; }
+  #intelBox { width: min(960px, 94vw); background: #0f1a1f; border: 1px solid #9fd8b5; padding: 20px 24px; text-align: left; box-shadow: 0 0 40px rgba(0,0,0,.8); }
+  #intelBox h2 { font-size: 17px; }
+  #intelBox .eq { font-size: 15px; background: rgba(0,0,0,.4); border-left: 3px solid #ffc94d; padding: 7px 12px; margin: 7px 0; color: #fff; }
+  #intelBox .eq small { display: block; color: #9fd8b5; font-size: 11px; letter-spacing: 1px; }
+  #intelBox .danger { border-left-color: #ff5a4d; } #intelBox .good { border-left-color: #6dff8a; }
+  #intelBox p { font-size: 13px; margin: 8px 0 0; max-width: none; color: #c5d3cd; }
+  #intelBox table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  #intelBox td, #intelBox th { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.12); text-align: left; }
+  #intelBox th { color: #9fd8b5; font-weight: normal; letter-spacing: 1px; }
+  #intelBox .bad { color: #ff7a6b; } #intelBox .hint { margin-top: 14px; text-align: right; color: #ffc94d; font-size: 12px; letter-spacing: 2px; }
+
+  /* ---------- v3: binoculares, etiquetas, guía y panel de pH ---------- */
+  #subs { display: none !important; }
+  #bino { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 4; overflow: hidden; }
+  #bino .lens { position: absolute; left: 50%; top: 50%; width: 150vh; max-width: 97vw; height: 76vh; transform: translate(-50%, -50%);
+    border-radius: 38vh; box-shadow: 0 0 0 200vmax #000, inset 0 0 70px 34px rgba(0,0,0,.88); }
+  #bino .bx { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 1px solid rgba(160,255,170,.55); border-radius: 50%; }
+  #bino .bx::after { content: ""; position: absolute; left: 12px; top: 12px; width: 2px; height: 2px; background: #a0ffaa; }
+  #binoInfo { position: absolute; left: 50%; bottom: 15vh; transform: translateX(-50%); color: #a0ffaa; font-size: 12px; letter-spacing: 2px; text-shadow: 0 0 4px #000; white-space: nowrap; }
+  #binoRec { position: absolute; left: calc(50% + 40vh); top: 17vh; color: #ff5a4d; font-size: 12px; letter-spacing: 2px; }
+  .tag { position: fixed; transform: translate(-50%, -100%); font-size: 11px; color: #ffc94d; border: 1px solid #ffc94d; padding: 2px 7px;
+    background: rgba(0,0,0,.5); white-space: nowrap; z-index: 5; display: none; letter-spacing: 1px; pointer-events: none; }
+  .tag::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px; background: #ffc94d; }
+  body.cine #card { bottom: 15vh; }
+  #card { position: fixed; left: 5vw; bottom: 36vh; font-size: 16px; letter-spacing: 3px; color: #fff; white-space: pre-line; z-index: 6;
+    text-shadow: 0 2px 4px #000; line-height: 1.7; pointer-events: none; }
+  #nav { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: 1px; color: #6ff3ff; text-shadow: 0 1px 3px #000;
+    white-space: nowrap; background: rgba(8,14,18,.6); padding: 4px 14px; border: 1px solid rgba(111,243,255,.45); display: none; }
+  #nav.ext { color: #6dff8a; border-color: #6dff8a; font-size: 15px; }
+  #navArrow { display: inline-block; margin-right: 9px; font-size: 16px; }
+  #timer { top: 126px !important; }
+  #ph { background: rgba(3, 8, 10, .82); z-index: 8; pointer-events: none; display: none; }
+  #phBox { width: min(980px, 95vw); background: #0f1a1f; border: 1px solid #9fd8b5; padding: 18px 22px; text-align: left; box-shadow: 0 0 40px rgba(0,0,0,.8); font-size: 13px; }
+  #phBox h2 { font-size: 16px; letter-spacing: 3px; color: #ffc94d; font-weight: normal; margin-bottom: 10px; }
+  #phBox .row { display: flex; gap: 18px; align-items: stretch; }
+  #phBox .meter { flex: 0 0 260px; background: #06100c; border: 1px solid #2f5a44; padding: 12px; text-align: center; }
+  #phBox .big { font-size: 54px; color: #9dff9d; letter-spacing: 2px; text-shadow: 0 0 12px rgba(120,255,140,.5); }
+  #phBox .big.bad { color: #ff6a5a; text-shadow: 0 0 12px rgba(255,80,60,.6); }
+  #phBox .big.warn { color: #ffc94d; }
+  #phBox .gbar { height: 14px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); margin: 6px 0 2px; }
+  #phBox .gbar > div { height: 100%; background: linear-gradient(90deg, #e6c229, #ff3b30); }
+  #phBox .scale { position: relative; height: 16px; margin: 12px 0 4px; background: linear-gradient(90deg, #d33 0%, #e90 30%, #dd3 45%, #3a3 57%, #3a3 68%, #36c 85%, #529 100%); }
+  #phBox .scale i { position: absolute; top: -4px; width: 3px; height: 24px; background: #fff; }
+  #phBox .scale u { position: absolute; top: 0; height: 16px; border: 2px solid #fff; box-sizing: border-box; }
+  #phBox table { width: 100%; border-collapse: collapse; }
+  #phBox td, #phBox th { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.1); text-align: left; }
+  #phBox th { color: #9fd8b5; font-weight: normal; letter-spacing: 1px; }
+  #phBox b.k { color: #ffc94d; font-weight: normal; }
+  #phBox .eq { background: rgba(0,0,0,.4); border-left: 3px solid #ffc94d; padding: 6px 10px; margin-top: 10px; color: #fff; }
+  #phBox .log { margin-top: 10px; min-height: 38px; color: #cfe9dc; }
+  #phBox .log .bad { color: #ff7a6b; }
+  #phBox .log .ok { color: #7dffa0; }
+
+</style>
+</head>
+<body>
+
+<!-- ======================= HUD ======================= -->
+<div id="hud">
+  <div id="scope">
+    <div id="reticle">
+      <div class="h"></div><div class="v"></div>
+      <div class="post pl"></div><div class="post pr"></div><div class="post pb"></div>
+      <div id="dropMarks"></div>
+      <div class="dot"></div>
+    </div>
+    <div id="rangeInfo"></div>
+  </div>
+  <div id="damage"></div><div id="cold"></div><div id="flash"></div>
+
+  <div id="objectives" class="panel"><h3 id="phaseTitle"></h3><ul id="objList"></ul></div>
+
+  <div id="keys" class="panel">
+    <h3>GUÍA DE TECLAS</h3>
+    <b>[W A S D]</b> Moverse · <b>[SHIFT]</b> Correr<br>
+    <b>[ESPACIO]</b> Saltar · <b>[CTRL]</b> Caminar sigiloso<br>
+    <b>[C]</b> Agacharse · <b>[Z]</b> Cuerpo a tierra<br>
+    <b>[Q] [E]</b> Inclinarse izq. / der.<br>
+    <b>[CLIC IZQ]</b> Disparar · <b>[CLIC DER]</b> Apuntar / mira<br>
+    <b>[SHIFT]</b> con mira: contener respiración<br>
+    <b>[1] [2] [3]</b> / <b>[RUEDA]</b> Cambiar arma / zoom<br>
+    <b>[R]</b> Recargar · <b>[4]</b> Botiquín<br>
+    <b>[F]</b> Interactuar / Oro / C4<br>
+    <b>[G]</b> Detonar C4 (en extracción)<br>
+    <b>[ESC]</b> Pausa / Liberar ratón
+  </div>
+
+  <div id="stealth" class="panel">
+    <div class="bar-label"><span>DETECCIÓN ENEMIGA</span><span id="stealthTxt">OCULTO</span></div>
+    <div class="bar"><div id="stealthFill"></div></div>
+  </div>
+  <div id="compass"></div>
+  <div id="nav"><span id="navArrow">&#9650;</span><span id="navTxt"></span></div>
+  <div id="timer"><span id="timerVal">30.0</span><small>DETONACIÓN</small></div>
+
+  <div id="bars" class="panel">
+    <div id="stanceInfo"><span id="stanceTxt">DE PIE</span><span id="medTxt">✚ 2</span></div>
+    <div class="bar-label"><span>SALUD</span><span id="healthTxt">100</span></div>
+    <div class="bar"><div id="healthFill"></div></div>
+    <div class="bar-label"><span>ESTAMINA (ALTURA / FRÍO)</span><span id="staminaTxt">100</span></div>
+    <div class="bar"><div id="staminaFill"></div></div>
+    <div id="envInfo">ALT 3.800 m · -2 °C</div>
+  </div>
+  <canvas id="minimap" width="150" height="150"></canvas>
+
+  <div id="ammo" class="panel">
+    <div id="weaponName"></div>
+    <div id="ammoCount">5 <small>/ 30</small></div>
+    <div id="ammoState"></div>
+    <div id="slots"><span id="slot0">1 FRANCOTIRADOR</span><span id="slot1">2 FUSIL</span><span id="slot2">3 PISTOLA</span></div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="hitmarker"></div>
+  <div id="message"></div>
+  <div id="prompt"></div>
+  <div id="wps"></div>
+</div>
+
+<div id="bino"><div class="lens"></div><div class="bx"></div><div id="binoRec">&#9679; REC</div><div id="binoInfo"></div></div>
+<div id="tags"></div>
+<div id="card"></div>
+<div id="ph" class="screen"><div id="phBox"></div></div>
+<div id="subs"></div>
+<div id="cine"><div class="barT"></div><div class="barB"></div><div id="cineLoc"></div><div id="cineSkip">[ESPACIO] SALTAR INTRODUCCIÓN</div></div>
+
+<!-- ======================= PANTALLAS ======================= -->
+<div id="menu" class="screen">
+  <h1>OPERACIÓN SANTURBÁN<span>CERO TOLERANCIA</span></h1>
+  <p>Páramo de Santurbán, Colombia · 3.800 m s. n. m. Una red de minería ilegal vierte
+     <b style="color:#9dff5a">cianuro y mercurio</b> al río que da de beber a más de dos millones de personas y tiene secuestrada a una ingeniera química.
+     Eres <b style="color:#ffc94d">Cóndor</b>: infíltrate, reúne las pruebas, rescata a la rehén, destruye la planta con C4 y llega a la extracción.</p>
+  <div class="keys">
+    <b>[W A S D]</b><span>Moverse</span>                 <b>[CLIC IZQ]</b><span>Disparar</span>
+    <b>[SHIFT]</b><span>Correr / contener respiración</span> <b>[CLIC DER]</b><span>Apuntar / mira telescópica</span>
+    <b>[ESPACIO]</b><span>Saltar</span>                   <b>[1] [2] [3] / RUEDA</b><span>Cambiar arma / zoom</span>
+    <b>[C] / [Z]</b><span>Agacharse / cuerpo a tierra</span> <b>[R] / [4]</b><span>Recargar / botiquín</span>
+    <b>[CTRL]</b><span>Caminar sigiloso</span>            <b>[F]</b><span>Interactuar / oro / C4</span>
+    <b>[Q] [E]</b><span>Inclinarse</span>                 <b>[G] / [ESC]</b><span>Detonar C4 / pausa</span>
+  </div>
+  <button class="btn" id="startBtn">INICIAR MISIÓN</button>
+  <div id="voiceNote">Usa audífonos. Las voces de los hostiles son grabaciones; la radio y la narración suenan mejor en Microsoft Edge.</div>
+  <div id="loadError">No se pudo cargar vendor/three.min.js. Verifica que subiste la carpeta completa.</div>
+</div>
+
+<div id="loadout" class="screen">
+  <h2>SELECCIÓN DE EQUIPO</h2>
+  <p style="margin-top:0">Llevas las tres armas (teclas 1, 2 y 3). Elige tu especialidad:</p>
+  <div id="kits">
+    <div class="kit" data-kit="sniper"><h3>TIRADOR DE PRECISIÓN</h3>M24 SWS con mira 4x–8x como arma principal.<br><i>+20 balas de francotirador</i><br><i>Mira 40 % más estable</i></div>
+    <div class="kit" data-kit="assault"><h3>ASALTO</h3>Galil ACE 23 automático para entrar al campamento.<br><i>+90 balas de fusil</i><br><i>Chaleco: −30 % de daño recibido</i></div>
+    <div class="kit" data-kit="recon"><h3>RECONOCIMIENTO</h3>Camuflaje de páramo y entrenamiento de altura.<br><i>Te detectan 35 % más lento</i><br><i>+1 botiquín · −25 % gasto de estamina</i></div>
+  </div>
+</div>
+
+<div id="pause" class="screen">
+  <h1>PAUSA</h1>
+  <p>Ratón liberado. La misión está detenida.</p>
+  <button class="btn" id="resumeBtn">CONTINUAR</button>
+</div>
+
+<div id="intel" class="screen"><div id="intelBox"></div></div>
+
+<div id="end" class="screen">
+  <h1 id="endTitle"></h1>
+  <p id="endText"></p>
+  <div id="stats"></div>
+  <button class="btn" id="restartBtn">REINICIAR MISIÓN</button>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/PointerLockControls.js"></script>
+<script src="js/personajes.js"></script>
+<script src="js/game.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/modelos.js"></script>
+<script src="js/historia.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
