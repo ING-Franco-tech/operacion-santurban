@@ -58,7 +58,7 @@ Las lecturas del río, las cifras del computador y la dosis de reactivo son simu
 index.html          Página y estilos del HUD
 js/personajes.js    Nombres y aspecto de los personajes
 js/game.js          Motor: terreno, armas, enemigos, misión
-js/audio.js         Clips con efecto de lejanía y voces
+js/audio.js         Clips grabados (sin procesar) y voces sintetizadas
 js/modelos.js       Personajes y vehículos
 js/realismo.js      Colisiones, navegación, animación corporal, posproceso y ambientación
 js/historia.js      Cinemática, misión del pH y guía de objetivos
