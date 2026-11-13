@@ -10,7 +10,7 @@
    ===================================================================== */
 
 const POSTS = { chamo: [ENG.x + 4, ENG.z + 1.5, 0.4], catire: [ENG.x - 1.5, ENG.z - 4, -0.6] };
-const SPOT = { suv: [-17.5, 47.4], door: [-18.3, 49.15], deivis: [-11.7, 48.4], chamo: [-10.0, 47.4], catire: [-8.6, 48.9],
+const SPOT = { suv: [-17.5, 47.4], door: [-18.95, 49.25], deivis: [-11.7, 48.4], chamo: [-10.0, 47.4], catire: [-8.6, 48.9],
   phX: SITES[0].x + 4.7, phZ: SITES[0].z + 1.6, dani: [SITES[0].x + 6.4, SITES[0].z + 3.6] };
 const STORY = { chamo: null, catire: null, deivis: null, pickup: null, suv: null, gas: null, tags: {}, exit: null, convoy: null, door: 0, doorTarget: 0 };
 const PATHS = {};
@@ -28,7 +28,7 @@ function buildStoryProps() {
   PATHS.suvOut.s0 = 4.5;
   PATHS.convoy = makePath([[-178, 48], [-145, 48], [-112, 48]]);
   for (const id of ['pickup', 'suv']) {
-    const v = STORY[id] = makeVehicle(id, id === 'suv' ? 0x08090a : 0x8d9296); scene.add(v);
+    const v = STORY[id] = makeVehicle(id, id === 'suv' ? 0xb3121a : 0x8d9296); scene.add(v);
     v.userData.cols = [0, 1, 2].map(() => { const c = { x: 9999, z: 9999, r: 1.05, y: 0, h: 1.8 }; colliders.push(c); return c; });
   }
   const m = makeHumanoid('boss'); m.userData.gun.visible = false; m.visible = false; scene.add(m);
@@ -51,18 +51,9 @@ function buildStoryProps() {
 }
 
 function spawnInitialEnemies() {
-  // 3 operarios vertiendo barriles al río
-  [-14, -2, 10].forEach((x, i) => {
-    const zr = riverZ(x);
-    spawnEnemy('op', x, zr + 6.2, { faceY: Math.PI });
-    const y = terrainH(x + 0.9, zr + 5.1), isHg = i === 1;
-    const barrel = addAt(new THREE.Mesh(cyl(0.42, 0.42, 1.15, 14), M(isHg ? 0x8a8f96 : 0xd4b21f, { metalness: 0.4 })), x + 0.9, y + 0.62, zr + 5.1); barrel.rotation.x = -1.0;
-    const liquid = MB(isHg ? 0xdfe8ee : 0x9dff3a, { transparent: true, opacity: 0.9 });
-    const stream = new THREE.Mesh(cyl(0.09, 0.16, 2.2, 8), liquid); stream.position.set(x + 0.9, y + 0.15, zr + 3.9); stream.rotation.x = -0.95; scene.add(stream);
-    const patch = new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), MB(isHg ? 0xcfdde2 : 0xa6ff3a, { transparent: true, opacity: 0.7 }));
-    patch.rotation.x = -Math.PI / 2; patch.position.set(x + 1.6, CFG.WATER_Y + 0.03, zr + 2.2); patch.scale.set(1.8, 1, 1); scene.add(patch);
-    pourProps.push(barrel, stream, patch); toxicPatches.push(patch);
-  });
+  // 3 operarios vertiendo barriles al río (el chorro se corta si el operario cae)
+  POUR.length = 0;
+  [-14, -2, 10].forEach((x, i) => { const op = spawnEnemy('op', x, riverZ(x) + 6.55, { faceY: Math.PI }); buildPour(x, i === 1, op); });
   spawnEnemy('guard', -28, 16, { patrol: [[-28, 16], [24, 15]] });
   spawnEnemy('guard', 20, 38, { patrol: [[20, 38], [-4, 37]] });
   spawnEnemy('tower', TOWER.x, TOWER.z, { y: terrainH(TOWER.x, TOWER.z) + TOWER.h, fixed: true, faceY: 2.2 });
@@ -143,12 +134,12 @@ function fade(v) { $('fade').style.opacity = v; }
 function buildTimeline() {
   let t = 0; CINE.segs = []; CINE.by = {};
   const add = (name, len) => { const s = { name, t, len }; CINE.segs.push(s); CINE.by[name] = s; t += len; };
-  add('fly1', 8.5); add('fly2', 8); add('pov', 4.5); add('arrive', 11.5); add('meet', 5.4);
+  add('fly1', 7); add('fly2', 8); add('pov', 5); add('arrive', 11.5); add('meet', 5.4);
   add('c1', clipDur('chamo_saludo') + 0.6);        // el Chamo saluda y pregunta qué hacer con el cianuro
   add('c2', clipDur('deivis_agua') + 0.6);         // Deivis: «écheselo al agua»
   add('c3', clipDur('deivis_oro') + 0.6);          // Deivis exige el oro
   add('leave', 9.5);
-  add('c4', clipDur('chamo_plan') + 0.7); add('c5', clipDur('catire_plan') + 1); add('brief', 8.5);
+  add('c4', clipDur('chamo_plan') + 0.7); add('c5', clipDur('catire_plan') + 1); add('brief', 3.5);
   CINE.total = t;
 }
 function setBino(on) { CINE.bino = on; $('bino').classList.toggle('on', on); if (!on) for (const k in STORY.tags) STORY.tags[k].style.display = 'none'; }
@@ -214,22 +205,19 @@ function enterSeg(name) {
   const D = STORY.deivis;
   fade(0);
   switch (name) {
-    case 'fly1': typeCard('PÁRAMO DE SANTURBÁN\nSANTANDER, COLOMBIA\n05:47 · 3.800 m s. n. m.', 4);
-      speak('narr', 'Páramo de Santurbán. Tres mil ochocientos metros de altura. De aquí baja el agua de más de dos millones de personas.', { interrupt: true }); break;
-    case 'fly2': typeCard('MINERÍA ILEGAL DE ORO\nCIANURO DE SODIO + MERCURIO', 4);
-      speak('narr', 'Una red ilegal saca oro con cianuro y mercurio. Lo que sobra, lo botan al río.'); break;
-    case 'pov': typeCard('«CÓNDOR» · FUERZAS ESPECIALES\nPUESTO DE OBSERVACIÓN ALFA', 3);
-      radio('Cóndor, aquí Halcón. Movimiento en la entrada oeste. Use los binoculares.'); break;
+    case 'fly1': typeCard('PÁRAMO DE SANTURBÁN\nSANTANDER, COLOMBIA\n05:47 · 3.800 m s. n. m.', 4); break;
+    case 'fly2': typeCard('MINERÍA ILEGAL DE ORO\nCIANURO Y MERCURIO DIRECTO AL RÍO', 4.5); break;
+    case 'pov': typeCard('PUESTO DE OBSERVACIÓN\nUSA LOS BINOCULARES', 3);
+      radio('Cóndor, presta atención y escucha lo que dicen.', 0.4, true); break;        // única voz generada de la misión
     case 'meet': setDoor(true); break;
-    case 'c1': playClip('chamo_saludo'); break;
+    case 'c1': shutUp(); playClip('chamo_saludo'); break;                  // nada de voces generadas sobre los personajes
     case 'c2': playClip('deivis_agua'); break;
     case 'c3': playClip('deivis_oro'); break;
-    case 'leave': D.path = [[-12.9, 49.6], [-15.8, 50.5], [-18.8, 50.2], SPOT.door.slice()]; CINE.flags.back = true;
+    case 'leave': D.path = [[-12.9, 49.7], [-15.8, 50.7], [-19.1, 50.4], SPOT.door.slice()]; CINE.flags.back = true;
       STORY.catire.path = [[-11.5, 27.5], [-10.4, 33], [-8.7, 37.6], [-9.9, 42.6], SPOT.catire.slice()]; break;
     case 'c4': playClip('chamo_plan'); break;
     case 'c5': playClip('catire_plan'); break;
-    case 'brief':
-      radio('Ya los oyó, Cóndor. Deivis vuelve hoy por el oro, y su propia gente lo quiere tumbar. Aproveche esa grieta. Tiene luz verde.'); break;
+    case 'brief': typeCard('TIENES LUZ VERDE', 2.5); break;
   }
 }
 function updateIntro(dt) {
@@ -260,7 +248,7 @@ function updateIntro(dt) {
   if (t > A + 5 && !fl.chamoGo) { fl.chamoGo = true; ch.path = [[-8.8, 36.5], [-10.2, 42.5], SPOT.chamo.slice()]; }
   const M0 = by.meet.t;
   if (t > M0 + 0.6 && !fl.out) { fl.out = true; D.mesh.visible = true; D.pos.set(SPOT.door[0], terrainH(SPOT.door[0], SPOT.door[1]), SPOT.door[1]); D.mesh.rotation.set(0, 0.2, 0); D.navX = null;
-    D.path = [[-18.8, 50.2], [-15.8, 50.5], [-12.9, 49.6], SPOT.deivis.slice()]; }
+    D.path = [[-19.1, 50.4], [-15.8, 50.7], [-12.9, 49.7], SPOT.deivis.slice()]; }
   if (t > M0 + 2.4 && t < by.leave.t) setDoor(false);
   if (fl.back && D.mesh.visible) {                                    // vuelve a la camioneta, sube y se van
     const dd = Math.hypot(D.pos.x - SPOT.door[0], D.pos.z - SPOT.door[1]);
@@ -334,11 +322,10 @@ function beginGameplay() {
   fade(1); setTimeout(() => fade(0), 60);
   typeCard('OPERACIÓN SANTURBÁN\n«CERO TOLERANCIA»\nFASE 1 · INFILTRACIÓN', 3);
   showMessage('NEUTRALIZA A LOS 8 HOSTILES SIN SER DETECTADO', 5);
-  radio('Cóndor, empiece por el vigía de la torre, al oeste. Si destruye la antena de radio, no podrán pedir refuerzos.', 1.2);
 }
 
 /* ---------------- 4) Refuerzos y convoy de Deivis ---------------- */
-// Sin jefe: llegan a pie por el camino. Con jefe: la Toyota entra, frena y se bajan Deivis y su escolta.
+// Sin jefe: llegan a pie por el camino. Con jefe: el Kia entra, frena y se bajan Deivis y su escolta.
 function spawnReinforcements(withBoss) {
   if (!withBoss) { [[-118, 47], [-123, 49.2], [-120.5, 45.4]].forEach(([x, z]) => spawnEnemy('guard', x, z, { combat: true, extra: true, speed: 5.2, stopDist: 26, hp: 140 })); return; }
   STORY.convoy = { t: 0, spawned: false };
@@ -380,10 +367,7 @@ function freeEngineer() {
   engineer.seated = false; engineer.free = true; engineer.arrived = false; engineer.stuck = 0; engineer.navX = null;
   engineer.tx = SPOT.dani[0]; engineer.tz = SPOT.dani[1];
   SFX.pickup();
-  speak('eng', 'Gracias a Dios. Pensé que nadie vendría.', { emo: 'miedo' });
-  speak('eng', 'Escúcheme, no se vaya. El tanque dos se está volviendo gas.', { emo: 'miedo' });
-  speak('eng', 'Fue culpa de Arciniegas, el operador anterior. Nunca midió el pH.', { emo: 'urgente' });
-  speak('eng', 'Venga conmigo a los tanques. Yo le voy diciendo qué hacer.', { emo: 'firme' });
+  speak('eng', 'Gracias. Sígame al tanque dos, rápido. Está soltando gas.', { emo: 'urgente' });
   showMessage('DANIELA LIBERADA — SÍGUELA A LOS TANQUES DE CIANURO', 4.5);
 }
 function openPh() {
@@ -391,7 +375,7 @@ function openPh() {
   setADS(false); $('prompt').style.display = 'none'; $('ph').style.display = 'flex';
   if (!PH.log) phLog('El tanque 2 burbujea. Hay un olor extraño en el aire.', '');
   renderPh();
-  phSay('open', 'Primero, la mascarilla. Tecla P. Y póngase con el viento a la espalda.', 'urgente');
+  phSay('open', 'Paso uno. Póngase la mascarilla. Tecla P.', 'urgente');
 }
 function closePh() {
   if (G.state !== 'ph') return;
@@ -402,21 +386,20 @@ function phKey(code) {
   if (PH.closing) return;
   if (code === 'KeyF' || code === 'Space') { closePh(); return; }
   if (code === 'KeyP') {
-    if (!PH.mask) { PH.mask = true; SFX.swap(); phLog('Mascarilla con filtro para gases ácidos puesta.', 'ok'); phSay('mask', 'Bien. Ahora mida el pH con el medidor. Tecla M.'); }
+    if (!PH.mask) { PH.mask = true; SFX.swap(); phLog('Mascarilla con filtro para gases ácidos puesta.', 'ok'); phSay('mask', 'Paso dos. Mida el pH. Tecla M.'); }
   } else if (code === 'KeyM') {
     PH.shown = Math.round(PH.real * 10) / 10; PH.stale = false; SFX.beep(1500);
     const p = PH.shown, pct = Math.round(hcnFrac(PH.real) * 100), ps = p.toFixed(1).replace('.', ',');
     if (p < 9.2) { phLog(`Lectura: pH ${ps}. Cerca del ${pct} % del cianuro está como HCN gaseoso.`, 'bad');
-      phSay('m1', 'Ocho coma cuatro. Por debajo de nueve coma dos, el cianuro se escapa como gas. Hay que subirlo con un reactivo alcalino.');
-      phSay('m1b', 'Busque la cal hidratada, tecla uno. Y no toque el bidón rojo: es ácido.'); }
-    else if (p < 10.5) { phLog(`Lectura: pH ${ps}. Mejor, pero aún hay ${pct} % como HCN. Falta.`, ''); phSay('m2', 'Va subiendo. Siga de a poco, y mida cada vez.'); }
-    else if (p <= 11.5) { phLog(`Lectura: pH ${ps}. Dentro del rango de operación. Confirma con ENTER.`, 'ok'); phSay('m3', 'Eso es. Está en rango. Confirme con Enter.'); }
-    else { phLog(`Lectura: pH ${ps}. Te pasaste: desperdicias reactivo y el oro se disuelve peor.`, 'bad'); phSay('m4', 'Se pasó de once y medio. Agregue agua de proceso, tecla cinco, para bajarlo un poco.'); }
+      phSay('m1', 'Está muy bajo: se escapa gas. Paso tres. Agregue una dosis de cal, tecla uno, y vuelva a medir.'); }
+    else if (p < 10.5) { phLog(`Lectura: pH ${ps}. Mejor, pero aún hay ${pct} % como HCN. Falta.`, ''); phSay('m2', 'Va subiendo. Otra dosis de cal, y mida.'); }
+    else if (p <= 11.5) { phLog(`Lectura: pH ${ps}. Dentro del rango de operación. Confirma con ENTER.`, 'ok'); phSay('m3', 'Listo, está en rango. Confirme con Enter.'); }
+    else { phLog(`Lectura: pH ${ps}. Te pasaste: desperdicias reactivo y el oro se disuelve peor.`, 'bad'); phSay('m4', 'Se pasó. Agregue agua, tecla cinco, y mida.'); }
   } else if (REAGENTS[code]) {
     const r = REAGENTS[code]; PH.real = clamp(r.f(PH.real), 6, 13.6); PH.doses++; PH.stale = true; SFX.step(0.3, true);
     phLog(r.msg, '');
     if (code === 'Digit2') phSay('soda', 'Cuidado. La soda sube el pH muy rápido. Mida ya.', 'urgente');
-    if (code === 'Digit3' && PH.real > 10.2) phSay('carb', 'El carbonato solo no alcanza. Con eso no llega a once.');
+    if (code === 'Digit3' && PH.real > 10.2) phSay('carb', 'Con carbonato no alcanza. Use cal.');
   } else if (code === 'Digit4') {                                  // el bidón rojo: ácido
     PH.real = Math.max(6, PH.real - 1.2); PH.doses++; PH.stale = true;
     player.health -= PH.mask ? 12 : 38; $('damage').style.opacity = 0.95; flashScreen(0.35); SFX.hurt(); SFX.spark();
@@ -436,8 +419,7 @@ function phSolved() {
   phLog(`ESTABLE: pH ${PH.shown.toFixed(1).replace('.', ',')} con ${PH.doses} dosis. Solo ${pct} % queda como HCN. El resto sigue disuelto como CN⁻.`, 'ok');
   renderPh();
   if (STORY.gas) STORY.gas.active = false;
-  speak('eng', 'Estable. A pH once, casi todo el cianuro queda disuelto, no en el aire. Así se opera bien.', { emo: 'firme' });
-  speak('eng', 'Ahora sí. Me voy para la bengala verde. Gracias, Cóndor.', { emo: 'firme' });
+  speak('eng', 'Estable. Así el cianuro se queda en el agua y no en el aire. Vámonos a la bengala verde.', { emo: 'firme' });
   after(3.2, () => {
     PH.closing = false; $('ph').style.display = 'none'; G.state = 'playing';
     const it = G.inter.find(i => i.id === 'ph'); it.done = true;
@@ -446,12 +428,27 @@ function phSolved() {
     renderObjectives(); checkPhase2();
   });
 }
+// Guía paso a paso de Daniela: siempre dice qué tecla toca ahora
+function phGuide() {
+  const p = PH.shown, ps = p == null ? '' : p.toFixed(1).replace('.', ',');
+  let cur, msg;
+  if (!PH.mask) { cur = 1; msg = 'Primero ponte la mascarilla: pulsa [P].'; }
+  else if (p == null) { cur = 2; msg = 'Ahora mide el pH del tanque: pulsa [M].'; }
+  else if (PH.stale) { cur = 4; msg = 'Agregaste reactivo. Vuelve a medir: pulsa [M].'; }
+  else if (p > 11.5) { cur = 3; msg = `Marca ${ps}: te pasaste de 11,5. Agrega agua [5] y vuelve a medir [M].`; }
+  else if (p < 10.5) { cur = 3; msg = `Marca ${ps}: todavía es bajo. Agrega UNA dosis de cal [1].`; }
+  else { cur = 5; msg = `Marca ${ps}: está en rango. Confirma con [ENTER].`; }
+  const steps = ['Mascarilla [P]', 'Medir pH [M]', 'Una dosis de cal [1]', 'Medir otra vez [M]', 'Confirmar [ENTER]'];
+  return `<div class="guide"><div class="now"><b>DANIELA</b>${msg}</div><div class="steps">` +
+    steps.map((t, i) => `<span class="${i + 1 === cur ? 'cur' : (i + 1 < cur ? 'ok' : '')}">${i + 1}. ${t}</span>`).join('') +
+    `</div><div class="warn">Repite los pasos 3 y 4 hasta que marque entre 10,5 y 11,5. Nunca uses el bidón rojo [4]: es ácido y libera el gas.</div></div>`;
+}
 function renderPh() {
   const p = PH.shown, pos = v => clamp((v - 6) / 8 * 100, 0, 100);
   const cls = p == null ? '' : (p < 9.2 ? 'bad' : (p < 10.5 || p > 11.5 ? 'warn' : ''));
   const pct = p == null ? null : Math.round(hcnFrac(p) * 100);
   $('phBox').innerHTML =
-    `<h2>TANQUE 2 DE LIXIVIACIÓN · CONTROL DE pH</h2><div class="row">` +
+    `<h2>TANQUE 2 DE LIXIVIACIÓN · CONTROL DE pH</h2>` + phGuide() + `<div class="row">` +
     `<div class="meter"><div style="color:#9fd8b5;letter-spacing:2px;font-size:11px">MEDIDOR DE CAMPO</div>` +
     `<div class="big ${cls}">${p == null ? '--,-' : p.toFixed(1).replace('.', ',')}</div>` +
     `<div style="font-size:11px;color:${PH.stale ? '#ffc94d' : '#8fa39c'}">${p == null ? 'sin lectura · pulsa [M]' : (PH.stale ? 'LECTURA VIEJA · vuelve a medir [M]' : 'lectura actual')}</div>` +

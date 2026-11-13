@@ -347,8 +347,14 @@ const groundTex = canvasTex(256, (g, s) => {             // grano de suelo: tier
   g.fillStyle = '#d9d9d9'; g.fillRect(0, 0, s, s);
   for (let i = 0; i < 5200; i++) { const v = 150 + Math.floor(rng() * 105), r = rng() * 2.2;
     g.fillStyle = `rgba(${v},${v - rng() * 14},${v - rng() * 26},${0.3 + rng() * 0.5})`; g.fillRect(rng() * s, rng() * s, r, r); }
-  for (let i = 0; i < 46; i++) { g.fillStyle = `rgba(${90 + rng() * 60},${95 + rng() * 60},${80 + rng() * 40},.22)`;
-    g.beginPath(); g.arc(rng() * s, rng() * s, 4 + rng() * 14, 0, 6.3); g.fill(); }
+  for (let i = 0; i < 70; i++) {                          // manchas difusas de humedad y musgo (sin bordes duros)
+    const x = rng() * s, y = rng() * s, r = 6 + rng() * 24, v = 95 + rng() * 70 | 0, gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(${v},${v},${v * 0.85 | 0},.15)`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { g.setTransform(1, 0, 0, 1, ox, oy); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  for (let i = 0; i < 240; i++) { const v = 120 + rng() * 120 | 0; g.fillStyle = `rgba(${v},${v},${v},.5)`;      // piedritas
+    g.beginPath(); g.ellipse(rng() * s, rng() * s, 0.8 + rng() * 1.8, 0.6 + rng() * 1.2, rng() * 3, 0, 6.3); g.fill(); }
 }, true);
 groundTex.repeat.set(90, 90);
 const grassTex = canvasTex(128, (g) => {                  // hojas finas y curvas, más oscuras en la base
@@ -383,7 +389,8 @@ const M = (color, extra) => {
 const MB = (color, extra) => new THREE.MeshBasicMaterial(Object.assign({ color }, extra || {}));
 function addAt(mesh, x, y, z, parent) { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; (parent || scene).add(mesh); return mesh; }
 function addCol(x, z, r, h) { colliders.push({ x, z, r, y: terrainH(x, z), h: h || 2 }); }
-const box = (w, h, d) => new THREE.BoxGeometry(w, h, d), cyl = (a, b, h, s) => new THREE.CylinderGeometry(a, b, h, s || 10);
+// Cajas con bordes redondeados (diseno.js) y cilindros con más segmentos: nada de aristas duras
+const box = (w, h, d) => (typeof softBox === 'function' ? softBox(w, h, d) : new THREE.BoxGeometry(w, h, d)), cyl = (a, b, h, s) => new THREE.CylinderGeometry(a, b, h, Math.max(s || 0, 20));
 
 function buildSky() {
   const g = new THREE.SphereGeometry(700, 24, 14), p = g.attributes.position, col = new Float32Array(p.count * 3);
@@ -417,11 +424,12 @@ function buildTerrain() {
   geo.computeVertexNormals();
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, map: groundTex, bumpMap: groundTex, bumpScale: 0.06, roughness: 1, metalness: 0 }));
   mesh.receiveShadow = true; scene.add(mesh);
+  scene.userData.terrain = mesh;
 }
 
 function buildRiver() {
   const pts = [], uvs = [], cols = [], idx = [];
-  const clean = new THREE.Color(0x3d5a66), toxic = new THREE.Color(0x6fae35), silver = new THREE.Color(0x9fbfae), c = new THREE.Color();
+  const clean = new THREE.Color(0x3d5a66), toxic = new THREE.Color(0x4a7636), silver = new THREE.Color(0x7d978c), c = new THREE.Color();
   let n = 0;
   for (let x = -240; x <= 240; x += 3) {
     const zc = riverZ(x), t = clamp((x + 18) / 22, 0, 1);
@@ -487,7 +495,7 @@ function buildVegetation() {
   grass.count = gi; grass.receiveShadow = true; scene.add(grass);
 
   // --- Arbustos, cojines de musgo y rocas ---
-  const SN = 340, shrubs = inst(blobGeo(1, 0.14, 4.2), M(0x47562f, { }), SN, true);
+  const SN = 340, shrubs = inst(blobGeo(2, 0.14, 4.2), M(0x47562f, { }), SN, true);
   const moss = inst(new THREE.SphereGeometry(1, 8, 5, 0, 6.3, 0, 1.5), M(0x6f8a3a), 200, false);
   let si = 0, mi = 0; guard = 0;
   while (si < SN && guard++ < 5000) {
@@ -511,7 +519,7 @@ function buildVegetation() {
 
   // --- Árboles de páramo (colorados / Polylepis) cerca del río y laderas bajas ---
   const TN = 46, bark = M(0x7a3d24), leaf = M(0x35482a, { });
-  const t1 = inst(cyl(0.14, 0.24, 1, 6), bark, TN * 2, true), canopy = inst(blobGeo(1, 0.16, 7.7), leaf, TN * 3, true);
+  const t1 = inst(cyl(0.14, 0.24, 1, 6), bark, TN * 2, true), canopy = inst(blobGeo(2, 0.16, 7.7), leaf, TN * 3, true);
   let ti = 0, ci = 0, tn = 0; guard = 0;
   while (tn < TN && guard++ < 3000) {
     const x = -165 + rng() * 330, z = rng() < 0.5 ? (-34 + rng() * 22) : (54 + rng() * 26);
@@ -1674,8 +1682,8 @@ function flowSVG(steps) {
   const w = 184, h = 62, gap = 26; let x = 4, out = '';
   steps.forEach((s, i) => {
     out += `<rect x="${x}" y="6" width="${w}" height="${h}" rx="6" fill="${s.c || '#1d2b33'}" stroke="#9fd8b5"/>` +
-      `<text x="${x + w / 2}" y="31" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="monospace">${s.t}</text>` +
-      `<text x="${x + w / 2}" y="51" text-anchor="middle" fill="#cfe9dc" font-size="10" font-family="monospace">${s.s}</text>`;
+      `<text x="${x + w / 2}" y="31" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="Bahnschrift, Segoe UI, sans-serif">${s.t}</text>` +
+      `<text x="${x + w / 2}" y="51" text-anchor="middle" fill="#cfe9dc" font-size="10" font-family="Bahnschrift, Segoe UI, sans-serif">${s.s}</text>`;
     if (i < steps.length - 1) out += `<path d="M${x + w + 3} 37 h${gap - 8} m0 0 l-6 -5 m6 5 l-6 5" stroke="#ffc94d" stroke-width="2" fill="none"/>`;
     x += w + gap;
   });

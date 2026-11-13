@@ -37,7 +37,7 @@ Luego entra a `http://localhost:8000`.
 
 ## Misión
 
-1. **Reconocimiento:** observa con binoculares la llegada de alias Deivis y su discusión con el Chamo.
+1. **Reconocimiento:** observa con binoculares la llegada de alias Deivis en su Kia rojo y su discusión con el Chamo.
 2. **Infiltración:** neutraliza a los 8 hostiles sin que te detecten.
 3. **Pruebas y rescate:** analiza el agua, asegura el oro, copia los datos y libera a la ingeniera.
 4. **Química:** estabiliza el pH del tanque 2 entre 10,5 y 11,5 para que el cianuro no se libere como HCN.
@@ -59,8 +59,9 @@ index.html          Página y estilos del HUD
 js/personajes.js    Nombres y aspecto de los personajes
 js/game.js          Motor: terreno, armas, enemigos, misión
 js/audio.js         Clips grabados (sin procesar) y voces sintetizadas
-js/modelos.js       Personajes y vehículos
+js/modelos.js       Formas orgánicas y aspecto de cada personaje
 js/realismo.js      Colisiones, navegación, animación corporal, posproceso y ambientación
+js/diseno.js        Vehículos de carrocería curva, personajes, vertimiento al río, lluvia y truenos
 js/historia.js      Cinemática, misión del pH y guía de objetivos
 js/main.js          Arranque y bucle principal
 audio/              Voces grabadas por el equipo

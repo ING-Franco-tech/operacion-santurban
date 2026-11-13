@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   ARRANQUE v4 — construye el mundo y ejecuta el bucle principal
+   ARRANQUE v5 — construye el mundo y ejecuta el bucle principal
    ===================================================================== */
 function loop() {
   requestAnimationFrame(loop);
@@ -18,6 +18,7 @@ function loop() {
     T += dt; updateWorld(dt); updateParticles(dt); updateMist(dt);
     if (G.state !== 'won') { camera.rotation.y = Math.sin(performance.now() * 0.00008) * 0.25; updateEnemies(dt); }
   }
+  if (G.state !== 'paused' && G.state !== 'reading') updatePour(dt);
   updatePolish(dt);
   renderFrame();
 }
@@ -27,7 +28,7 @@ buildSky(); buildBackdrop(); buildTerrain(); buildRiver();
 buildCamp(); dressCamp(); buildStoryProps();
 G.campCols = colliders.length;
 buildVegetation(); buildC4Markers(); buildMist(); buildGuns();
-initImage();
+initImage(); wetWorld();
 resetMission();
 guns.forEach(g => { g.visible = false; });
 loop();

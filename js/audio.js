@@ -146,7 +146,7 @@ function radioBed(on) {
 // Encola una línea; se parte en frases cortas para que el navegador no las corte
 function speak(role, text, o) {
   o = o || {};
-  if (role === 'enemy' || !VO.ok || !VOICE[role]) return;
+  if (role === 'enemy' || role === 'narr' || !VO.ok || !VOICE[role]) return;      // sin narrador: el contexto va en pantalla
   if (o.interrupt) shutUp();
   if (VQ.q.length > 8) VQ.q.splice(0, VQ.q.length - 8);          // no acumular líneas viejas
   const parts = text.match(/[^.!?…]+[.!?…]*/g) || [text];
@@ -179,7 +179,13 @@ function pumpVoice() {
   } catch (e) { fin(); }
 }
 function voiceSpeaking(role) { return !!(VQ.cur && VQ.cur.role === role); }
-function radio(text, delay) {
+// La radio generada suena una sola vez, al inicio (force). Los demás avisos van como texto en pantalla.
+function radio(text, delay, force) {
+  if (!force) {
+    if (/botiqu/i.test(text)) showMessage('ESTÁS HERIDO — USA EL BOTIQUÍN [4]', 3);
+    else if (/refuerzos por/i.test(text)) showMessage('REFUERZOS ENEMIGOS LLEGAN POR EL OESTE', 3.5);
+    return;
+  }
   setTimeout(() => { if (['playing', 'intro', 'ph'].includes(G.state)) speak('radio', text); }, (delay || 0) * 1000);
 }
 function shutUp() {

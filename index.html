@@ -196,6 +196,66 @@
   #actbar { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); width: 300px; display: none; text-align: center; font-size: 13px; letter-spacing: 2px; color: #ffc94d; text-shadow: 0 1px 3px #000; }
   #actbar .bar { height: 8px; margin-top: 6px; border-color: #ffc94d; }
   #actFill { background: #ffc94d; width: 0; transition: none; }
+
+  /* ---------- v5: tipografía moderna y HUD más limpio ---------- */
+  html, body { font-family: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", "Inter", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; letter-spacing: .2px; }
+  .panel { background: linear-gradient(180deg, rgba(14,20,24,.62), rgba(8,12,15,.46)); border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 8px 26px rgba(0,0,0,.28); font-size: 13px; line-height: 1.5; padding: 11px 13px; }
+  #objectives h3, #keys h3 { font-weight: 600; letter-spacing: 1.6px; font-size: 12px; }
+  #objectives li { padding-left: 20px; }
+  #objectives li::before { content: ""; width: 9px; height: 9px; top: 5px; left: 1px; border: 1.5px solid #9fd8b5; border-radius: 50%; box-sizing: border-box; }
+  #objectives li.done::before { content: ""; background: #55d58a; border-color: #55d58a; }
+  #keys { font-size: 11.5px; line-height: 1.55; width: 276px; }
+  #keys b { font-weight: 600; }
+  .bar { height: 7px; border: none; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; }
+  .bar-label { font-size: 11px; letter-spacing: 1.2px; font-weight: 500; }
+  #stanceInfo { font-weight: 600; letter-spacing: 1.2px; }
+  #ammoCount { font-weight: 600; font-size: 36px; letter-spacing: 1px; font-stretch: 85%; }
+  #ammoCount small { font-weight: 400; }
+  #weaponName, #ammoState { letter-spacing: 1.2px; font-weight: 500; }
+  #slots span { border-radius: 6px; padding: 2px 8px; font-weight: 500; }
+  #minimap { border-radius: 12px; border-color: rgba(255,255,255,.14); }
+  #compass { font-weight: 500; letter-spacing: 2.5px; }
+  #nav { border-radius: 20px; font-weight: 600; letter-spacing: 1px; padding: 5px 16px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  #message { font-weight: 600; letter-spacing: 1.6px; font-size: 19px; }
+  #prompt { border-radius: 10px; font-weight: 600; letter-spacing: .8px; padding: 8px 18px; }
+  #timer { font-weight: 700; font-stretch: 80%; letter-spacing: 2px; }
+  #timer small { font-weight: 500; }
+  #card { font-weight: 300; letter-spacing: 5px; font-size: 18px; text-transform: uppercase; }
+  #cineLoc { font-weight: 500; letter-spacing: 4px; }
+  #cineSkip { letter-spacing: 2px; font-weight: 500; }
+  #binoInfo, #binoRec { font-weight: 500; letter-spacing: 2px; }
+  .tag { border-radius: 5px; font-weight: 600; letter-spacing: 1px; padding: 3px 9px; }
+  .waypoint { font-weight: 600; letter-spacing: .8px; }
+  #actbar { font-weight: 600; }
+  #rangeInfo { font-weight: 500; }
+  .screen h1 { font-family: "Bahnschrift", "Segoe UI", Roboto, Arial, sans-serif; font-weight: 700; font-stretch: 78%; letter-spacing: 3px; text-transform: uppercase; }
+  .screen h1 span { font-weight: 300; font-stretch: 100%; letter-spacing: 14px; }
+  .screen h2 { font-weight: 600; letter-spacing: 4px; }
+  .screen p { font-size: 15px; line-height: 1.65; }
+  .screen .keys { border-radius: 12px; border-color: rgba(255,255,255,.12); font-size: 13px; padding: 16px 22px; gap: 5px 18px; }
+  .screen .keys b { font-weight: 600; }
+  .btn { border-radius: 10px; font-family: inherit; font-weight: 700; letter-spacing: 3px; padding: 14px 42px; box-shadow: 0 8px 24px rgba(255,201,77,.22); }
+  .kit { border-radius: 14px; font-size: 13.5px; border-color: rgba(255,255,255,.14); }
+  .kit h3 { font-weight: 700; letter-spacing: 2px; }
+  #stats { font-size: 15px; } #stats b { font-weight: 600; }
+  #intelBox, #phBox { border-radius: 14px; border-color: rgba(159,216,181,.45); font-size: 14px; }
+  #intelBox h2, #phBox h2 { font-weight: 700; letter-spacing: 2.5px; }
+  #intelBox .eq, #phBox .eq { border-radius: 0 8px 8px 0; }
+  #phBox .meter { border-radius: 12px; }
+  #phBox .big { font-weight: 700; font-stretch: 85%; }
+  #phBox b.k { font-weight: 700; }
+  /* Guía paso a paso de Daniela */
+  #phBox .guide { background: rgba(182,255,154,.07); border: 1px solid rgba(182,255,154,.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+  #phBox .guide .now { font-size: 19px; font-weight: 600; color: #fff; }
+  #phBox .guide .now b { color: #b6ff9a; font-size: 12px; letter-spacing: 2px; margin-right: 10px; vertical-align: middle; }
+  #phBox .guide .steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  #phBox .guide .steps span { padding: 4px 11px; border-radius: 16px; border: 1px solid rgba(255,255,255,.18); color: #9fb3ad; font-size: 12.5px; }
+  #phBox .guide .steps span.ok { border-color: #55d58a; color: #55d58a; }
+  #phBox .guide .steps span.cur { background: #ffc94d; border-color: #ffc94d; color: #0b1014; font-weight: 700; }
+  #phBox .guide .warn { margin-top: 9px; font-size: 12.5px; color: #ffb3a8; }
+
 </style>
 </head>
 <body>
@@ -286,7 +346,7 @@
     <b>[Q] [E]</b><span>Inclinarse</span>                 <b>[G] / [ESC]</b><span>Detonar C4 / pausa</span>
   </div>
   <button class="btn" id="startBtn">INICIAR MISIÓN</button>
-  <div id="voiceNote">Usa audífonos. Las voces de los hostiles son grabaciones; la radio y la narración suenan mejor en Microsoft Edge.</div>
+  <div id="voiceNote">Usa audífonos. Las voces de los personajes son grabaciones del equipo.</div>
   <div id="loadError">No se pudo cargar vendor/three.min.js. Verifica que subiste la carpeta completa.</div>
 </div>
 
@@ -317,12 +377,13 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/PointerLockControls.js"></script>
-<script src="js/personajes.js?v=4"></script>
-<script src="js/game.js?v=4"></script>
-<script src="js/audio.js?v=4"></script>
-<script src="js/modelos.js?v=4"></script>
-<script src="js/realismo.js?v=4"></script>
-<script src="js/historia.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/personajes.js?v=5"></script>
+<script src="js/game.js?v=5"></script>
+<script src="js/audio.js?v=5"></script>
+<script src="js/modelos.js?v=5"></script>
+<script src="js/realismo.js?v=5"></script>
+<script src="js/diseno.js?v=5"></script>
+<script src="js/historia.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 </body>
 </html>
