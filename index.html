@@ -188,6 +188,14 @@
   #phBox .log .bad { color: #ff7a6b; }
   #phBox .log .ok { color: #7dffa0; }
 
+
+  /* ---------- v4: fundidos, binoculares animados y barra de acción ---------- */
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; transition: opacity .45s ease; }
+  #bino { display: block; opacity: 0; visibility: hidden; transform: scale(1.22); transition: opacity .3s ease, transform .3s ease, visibility .3s; }
+  #bino.on { opacity: 1; visibility: visible; transform: none; }
+  #actbar { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); width: 300px; display: none; text-align: center; font-size: 13px; letter-spacing: 2px; color: #ffc94d; text-shadow: 0 1px 3px #000; }
+  #actbar .bar { height: 8px; margin-top: 6px; border-color: #ffc94d; }
+  #actFill { background: #ffc94d; width: 0; transition: none; }
 </style>
 </head>
 <body>
@@ -251,12 +259,14 @@
   <div id="hitmarker"></div>
   <div id="message"></div>
   <div id="prompt"></div>
+  <div id="actbar"><div id="actTxt"></div><div class="bar"><div id="actFill"></div></div></div>
   <div id="wps"></div>
 </div>
 
 <div id="bino"><div class="lens"></div><div class="bx"></div><div id="binoRec">&#9679; REC</div><div id="binoInfo"></div></div>
 <div id="tags"></div>
 <div id="card"></div>
+<div id="fade"></div>
 <div id="ph" class="screen"><div id="phBox"></div></div>
 <div id="subs"></div>
 <div id="cine"><div class="barT"></div><div class="barB"></div><div id="cineLoc"></div><div id="cineSkip">[ESPACIO] SALTAR INTRODUCCIÓN</div></div>
@@ -307,11 +317,12 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/PointerLockControls.js"></script>
-<script src="js/personajes.js"></script>
-<script src="js/game.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/modelos.js"></script>
-<script src="js/historia.js"></script>
-<script src="js/main.js"></script>
+<script src="js/personajes.js?v=4"></script>
+<script src="js/game.js?v=4"></script>
+<script src="js/audio.js?v=4"></script>
+<script src="js/modelos.js?v=4"></script>
+<script src="js/realismo.js?v=4"></script>
+<script src="js/historia.js?v=4"></script>
+<script src="js/main.js?v=4"></script>
 </body>
 </html>

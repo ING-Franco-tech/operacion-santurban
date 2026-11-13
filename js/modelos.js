@@ -143,12 +143,14 @@ function smoothPoly(pts, it) {
   }
   return pts;
 }
-// kind: 'suv' (Toyota negra) | 'pickup' (camioneta de escolta). Frente = +X
+// kind: 'suv' (Toyota negra) | 'pickup' (camioneta de escolta). Frente = +X.
+// Estructura: grupo raíz -> carrocería (se inclina al frenar/girar) + ruedas (giran y viran) + puerta trasera derecha
 function makeVehicle(kind, color) {
-  const g = new THREE.Group(), W = 1.85;
-  const paint = new THREE.MeshStandardMaterial({ color, metalness: 0.75, roughness: kind === 'suv' ? 0.22 : 0.45 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1116, metalness: 0.9, roughness: 0.08 });
+  const g = new THREE.Group(), body = new THREE.Group(), W = 1.85; g.add(body);
+  const paint = new THREE.MeshStandardMaterial({ color, metalness: 0.8, roughness: kind === 'suv' ? 0.2 : 0.42 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1116, metalness: 0.9, roughness: 0.06 });
   const blackM = new THREE.MeshStandardMaterial({ color: 0x0c0c0d, roughness: 0.85 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, metalness: 1, roughness: 0.25 });
   const profile = kind === 'suv'
     ? [[-2.38, 0.42], [-2.42, 1.15], [-2.3, 1.82], [0.45, 1.86], [1.22, 1.2], [2.32, 1.1], [2.42, 0.42]]
     : [[-2.6, 0.45], [-2.62, 1.08], [-0.75, 1.08], [-0.7, 1.82], [0.5, 1.84], [1.22, 1.18], [2.36, 1.08], [2.46, 0.45]];
@@ -156,33 +158,52 @@ function makeVehicle(kind, color) {
   pts.forEach((p, i) => i ? shape.lineTo(p[0], p[1]) : shape.moveTo(p[0], p[1]));
   const geo = new THREE.ExtrudeGeometry(shape, { depth: W - 0.3, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.13, bevelSegments: 5 });
   geo.translate(0, 0, -(W - 0.3) / 2);
-  const body = new THREE.Mesh(geo, paint); body.castShadow = true; g.add(body);
-  const add = (geo2, mat, x, y, z, rz) => { const m = new THREE.Mesh(geo2, mat); m.position.set(x, y, z); if (rz) m.rotation.z = rz; m.castShadow = true; g.add(m); return m; };
+  const shell = new THREE.Mesh(geo, paint); shell.castShadow = true; body.add(shell);
+  const add = (geo2, mat, x, y, z, parent) => { const m = new THREE.Mesh(geo2, mat); m.position.set(x, y, z); m.castShadow = true; (parent || body).add(m); return m; };
   // Ventanas
   const cabX = kind === 'suv' ? -0.72 : -0.1, cabL = kind === 'suv' ? 2.5 : 1.25;
   add(new THREE.BoxGeometry(cabL, 0.42, W + 0.03), glass, cabX, 1.5, 0);
-  add(new THREE.BoxGeometry(0.06, 0.5, W - 0.3), glass, 0.88, 1.5, 0, -0.86);                 // parabrisas
+  add(new THREE.BoxGeometry(0.06, 0.5, W - 0.3), glass, 0.88, 1.5, 0).rotation.z = -0.86;                   // parabrisas
   if (kind === 'suv') for (const x of [-1.2, -0.25]) add(new THREE.BoxGeometry(0.07, 0.46, W + 0.05), paint, x, 1.5, 0);   // parales
   if (kind === 'pickup') { add(new THREE.BoxGeometry(1.75, 0.5, W - 0.25), blackM, -1.68, 1.02, 0);                        // platón
     add(new THREE.CapsuleGeometry(0.035, W - 0.3, 3, 8), blackM, -0.78, 1.95, 0).rotation.x = Math.PI / 2; }
-  // Luces, parrilla y defensas
+  // Retrovisores, manijas y estribos
+  for (const s of [-1, 1]) { add(new THREE.SphereGeometry(0.09, 8, 6), blackM, 0.78, 1.32, s * (W / 2 + 0.1)).scale.set(0.7, 0.8, 1.2);
+    add(new THREE.CapsuleGeometry(0.03, 2.2, 3, 8), blackM, 0, 0.44, s * (W / 2 + 0.04)).rotation.z = Math.PI / 2; }
+  // Luces: faros, stops (se encienden al frenar) y haces en la niebla
+  const stopMat = new THREE.MeshBasicMaterial({ color: 0x5a0d08 });
   for (const s of [-1, 1]) {
     add(new THREE.SphereGeometry(0.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff2c8 }), 2.42, 0.95, s * 0.62).scale.set(0.4, 0.7, 1.3);
-    add(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xc81e14 }), kind === 'suv' ? -2.46 : -2.66, 0.98, s * 0.7).scale.set(0.4, 1, 1);
+    add(new THREE.SphereGeometry(0.1, 10, 8), stopMat, kind === 'suv' ? -2.46 : -2.66, 0.98, s * 0.7).scale.set(0.4, 1, 1);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(1.5, 9, 14, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xfff0cc, transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.rotation.z = Math.PI / 2; beam.position.set(2.45 + 4.5, 0.9, s * 0.62); body.add(beam);
   }
   add(new THREE.BoxGeometry(0.06, 0.26, 1.0), blackM, 2.5, 0.92, 0);
+  add(new THREE.BoxGeometry(0.02, 0.05, 0.5), chrome, 2.54, 0.95, 0);
   add(new THREE.CapsuleGeometry(0.09, W - 0.1, 3, 8), blackM, 2.5, 0.52, 0).rotation.x = Math.PI / 2;
   add(new THREE.CapsuleGeometry(0.09, W - 0.1, 3, 8), blackM, kind === 'suv' ? -2.5 : -2.68, 0.52, 0).rotation.x = Math.PI / 2;
-  // Ruedas
+  // Puerta trasera derecha (lado +Z): bisagra al frente, abre hacia afuera
+  let door = null;
+  if (kind === 'suv') {
+    add(new THREE.BoxGeometry(0.92, 1.08, 0.02), new THREE.MeshBasicMaterial({ color: 0x050506 }), -0.5, 1.12, W / 2 + 0.006);     // interior oscuro
+    door = new THREE.Group(); door.position.set(0.0, 0, W / 2 + 0.03); body.add(door);
+    add(new THREE.BoxGeometry(0.98, 0.72, 0.05), paint, -0.5, 0.9, 0, door);
+    add(new THREE.BoxGeometry(0.94, 0.4, 0.04), glass, -0.5, 1.48, 0, door);
+    add(new THREE.BoxGeometry(0.14, 0.03, 0.03), chrome, -0.82, 1.12, 0.035, door);
+  }
+  // Ruedas: grupo de dirección -> grupo de giro
   const wheels = [], tire = new THREE.TorusGeometry(0.29, 0.13, 10, 20), hub = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 14); hub.rotateX(Math.PI / 2);
+  const rim = new THREE.MeshStandardMaterial({ color: kind === 'suv' ? 0x2a2c2e : 0x9a9da0, metalness: 0.8, roughness: 0.35 });
   for (const x of [-1.5, 1.52]) for (const s of [-1, 1]) {
-    const w = new THREE.Group(); w.position.set(x, 0.42, s * (W / 2 - 0.02));
-    const t = new THREE.Mesh(tire, blackM); t.castShadow = true; w.add(t);
-    w.add(new THREE.Mesh(hub, new THREE.MeshStandardMaterial({ color: kind === 'suv' ? 0x2a2c2e : 0x9a9da0, metalness: 0.8, roughness: 0.35 })));
-    for (let k = 0; k < 5; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.21), blackM); sp.rotation.z = k * Math.PI / 5; w.add(sp); }
-    g.add(w); wheels.push(w);
+    const steer = new THREE.Group(); steer.position.set(x, 0.42, s * (W / 2 - 0.02)); g.add(steer);
+    const spin = new THREE.Group(); steer.add(spin);
+    const t = new THREE.Mesh(tire, blackM); t.castShadow = true; spin.add(t);
+    spin.add(new THREE.Mesh(hub, rim));
+    for (let k = 0; k < 5; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.21), blackM); sp.rotation.z = k * Math.PI / 5; spin.add(sp); }
+    wheels.push({ steer, spin, front: x > 0 });
     add(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), blackM, x, 0.42, s * (W / 2 - 0.16)).scale.set(1.05, 1, 0.5);   // guardabarros
   }
-  g.userData = { wheels, kind };
+  g.userData = { wheels, body, door, stopMat, kind, st: {} };
   return g;
 }

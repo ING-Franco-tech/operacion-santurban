@@ -60,6 +60,7 @@ js/personajes.js    Nombres y aspecto de los personajes
 js/game.js          Motor: terreno, armas, enemigos, misión
 js/audio.js         Clips con efecto de lejanía y voces
 js/modelos.js       Personajes y vehículos
+js/realismo.js      Colisiones, navegación, animación corporal, posproceso y ambientación
 js/historia.js      Cinemática, misión del pH y guía de objetivos
 js/main.js          Arranque y bucle principal
 audio/              Voces grabadas por el equipo

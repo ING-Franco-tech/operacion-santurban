@@ -72,7 +72,9 @@ function hasLOS(a, b) {
   return true;
 }
 
-function onRoad(x, z) { return x < -13 && x > -180 && Math.abs(z - 48) < 4.2; }
+// Explanada de vehículos (sin vegetación) y camino de acceso
+function inApron(x, z) { return x > -66 && x < -7 && z > 42.5 && z < 60.5; }
+function onRoad(x, z) { return (x < -13 && x > -180 && Math.abs(z - 48) < 4.2) || inApron(x, z); }
 // Corredor de vision desde el puesto de observacion hacia el campamento
 function inView(x, z) { const d = 114 - z; return d > 1 && d < 46 && x > -d * 0.5 - 2.5 && x < d * 0.12 + 2.5; }
 
@@ -297,7 +299,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.92;
+renderer.toneMappingExposure = 1.04;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setClearColor(FOG_COLOR);
@@ -349,9 +351,15 @@ const groundTex = canvasTex(256, (g, s) => {             // grano de suelo: tier
     g.beginPath(); g.arc(rng() * s, rng() * s, 4 + rng() * 14, 0, 6.3); g.fill(); }
 }, true);
 groundTex.repeat.set(90, 90);
-const grassTex = canvasTex(64, (g) => {
-  for (let i = 0; i < 13; i++) { const x = 4 + rng() * 56, tip = 4 + rng() * 30, lean = (rng() - 0.5) * 16, v = 190 + rng() * 65;
-    g.fillStyle = `rgb(${v},${v},${v * 0.85})`; g.beginPath(); g.moveTo(x - 2.2, 64); g.lineTo(x + 2.2, 64); g.lineTo(x + lean, tip); g.fill(); }
+const grassTex = canvasTex(128, (g) => {                  // hojas finas y curvas, más oscuras en la base
+  for (let i = 0; i < 34; i++) {
+    const x = 8 + rng() * 112, hgt = 38 + rng() * 86, lean = (rng() - 0.5) * 48, w = 1.5 + rng() * 1.7, v = 175 + rng() * 80;
+    const gr = g.createLinearGradient(0, 128, 0, 128 - hgt);
+    gr.addColorStop(0, `rgb(${v * 0.74 | 0},${v * 0.78 | 0},${v * 0.56 | 0})`); gr.addColorStop(1, `rgb(${v | 0},${v | 0},${v * 0.8 | 0})`);
+    g.fillStyle = gr; g.beginPath(); g.moveTo(x - w, 128);
+    g.quadraticCurveTo(x - w + lean * 0.25, 128 - hgt * 0.6, x + lean, 128 - hgt);
+    g.quadraticCurveTo(x + w + lean * 0.3, 128 - hgt * 0.55, x + w, 128); g.fill();
+  }
 });
 
 /* ============================ 5) MUNDO ESTÁTICO ============================ */
@@ -366,7 +374,11 @@ const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vecto
 const matCache = {};
 const M = (color, extra) => {
   const key = color + JSON.stringify(extra || 0);
-  return matCache[key] || (matCache[key] = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0 }, extra || {})));
+  if (matCache[key]) return matCache[key];
+  const base = { color, roughness: 0.9, metalness: 0 };
+  // Textura de detalle (tela, madera, óxido, grano) según el material: ver realismo.js
+  if (typeof detailFor === 'function' && !(extra && (extra.map || extra.transparent))) Object.assign(base, detailFor(color));
+  return (matCache[key] = new THREE.MeshStandardMaterial(Object.assign(base, extra || {})));
 };
 const MB = (color, extra) => new THREE.MeshBasicMaterial(Object.assign({ color }, extra || {}));
 function addAt(mesh, x, y, z, parent) { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; (parent || scene).add(mesh); return mesh; }
@@ -425,6 +437,7 @@ function buildRiver() {
   geo.setIndex(idx); geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ map: waterTex, vertexColors: true, transparent: true, opacity: 0.88, roughness: 0.12, metalness: 0.35, side: THREE.DoubleSide });
   const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m);
+  scene.userData.river = m;
 }
 
 function buildVegetation() {
@@ -438,10 +451,8 @@ function buildVegetation() {
   const N = 760;
   const trunks = inst(cyl(0.13, 0.2, 1, 7), M(0x4b3b29), N, true);
   const skirts = inst(cyl(0.2, 0.3, 1, 7), M(0x6e5f45), N, true);
-  const cg = new THREE.SphereGeometry(0.52, 12, 8); cg.scale(1, 0.5, 1);
-  const crowns = inst(cg, M(0xaebfa0, { }), N, true);
-  const cg2 = new THREE.ConeGeometry(0.36, 0.7, 12); cg2.rotateX(Math.PI);
-  const inner = inst(cg2, M(0xc9d6bd, { }), N, false);
+  const crowns = inst(rosetteGeo(), leafy(M(0xb2c2a4, { side: THREE.DoubleSide, roughness: 0.75 })), N, false); crowns.receiveShadow = false;     // roseta de hojas
+  const inner = inst(new THREE.SphereGeometry(0.13, 8, 6), M(0xd2dcc6, { }), N, false);                      // cogollo
   const flowers = inst(new THREE.SphereGeometry(0.11, 6, 5), M(0xe9c93a), N * 2, false);
   let i = 0, f = 0, guard = 0;
   while (i < N && guard++ < 9000) {
@@ -451,8 +462,8 @@ function buildVegetation() {
     const s = 0.7 + rng() * 0.9, th = (0.4 + rng() * rng() * 2.2) * s, ry = rng() * 6.28;
     put(trunks, i, x, h + th / 2, z, s, th, s, ry);
     put(skirts, i, x, h + th * 0.72, z, s, th * 0.55, s, ry);
-    put(crowns, i, x, h + th + 0.2 * s, z, s, s, s, ry);
-    put(inner, i, x, h + th + 0.38 * s, z, s, s, s, ry + 0.5);
+    put(crowns, i, x, h + th - 0.04 * s, z, s, s, s, ry);
+    put(inner, i, x, h + th + 0.1 * s, z, s, s * 1.3, s, ry + 0.5);
     if (rng() < 0.6) for (let k = 0; k < 2; k++) put(flowers, f++, x + (rng() - 0.5) * 0.5 * s, h + th + 0.72 * s + rng() * 0.2, z + (rng() - 0.5) * 0.5 * s, s, s, s);
     addCol(x, z, 0.2 * s, th + 0.4);
     i++;
@@ -462,15 +473,15 @@ function buildVegetation() {
   // --- Pajonal: macollas de pasto con textura alfa (dos planos cruzados) ---
   const pg = new THREE.PlaneGeometry(1, 1); pg.translate(0, 0.5, 0);
   const nrm = pg.attributes.normal; for (let k = 0; k < nrm.count; k++) nrm.setXYZ(k, 0, 1, 0);
-  const GN = 9500, grass = new THREE.InstancedMesh(pg, new THREE.MeshLambertMaterial({ map: grassTex, alphaTest: 0.45, side: THREE.DoubleSide }), GN * 2);
+  const GN = 9500, grass = new THREE.InstancedMesh(pg, makeGrassMaterial(grassTex), GN * 2);
   let gi = 0; guard = 0;
   while (gi < GN * 2 && guard++ < 60000) {
     const x = -120 + rng() * 240, z = -30 + rng() * 175;
     if (Math.abs(z - riverZ(x)) < 6.5 || onRoad(x, z)) continue;
-    if (inCamp(x, z) && rng() < 0.82) continue;
+    if (inCamp(x, z) && (rng() < 0.72 || blockedSpot(x, z, 0.6))) continue;     // nada de pasto atravesando objetos
     const h = terrainH(x, z); if (h > 55) continue;
     const w = 0.8 + rng() * 1.1, hh = 0.35 + rng() * 0.6, ry = rng() * 3.14;
-    col.setHSL(0.14 + rng() * 0.08, 0.3 + rng() * 0.2, 0.22 + rng() * 0.13);
+    col.setHSL(0.13 + rng() * 0.08, 0.32 + rng() * 0.2, 0.4 + rng() * 0.17);
     for (let k = 0; k < 2; k++) { put(grass, gi, x, h - 0.03, z, w, hh, w, ry + k * 1.57); grass.setColorAt(gi, col); gi++; }
   }
   grass.count = gi; grass.receiveShadow = true; scene.add(grass);
@@ -890,7 +901,8 @@ function setAlerted() {
 }
 function enemyShoot(e, dist) {
   SFX.enemyShot(dist);
-  const from = _v.copy(e.pos); from.y += 1.4;
+  e.mesh.updateWorldMatrix(true, true);
+  const from = e.mesh.userData.gun.localToWorld(_v.set(0, 0.02, 0.6)); e.recoilT = 0.14;      // boca del arma
   let p = e.kind === 'tower' ? 0.3 : clamp(0.6 - dist / 120, 0.06, 0.5);
   if (e.kind === 'op') p *= 0.55;
   if (e.burst > 0) p *= 0.55;
@@ -973,10 +985,10 @@ function updateEnemies(dt) {
       }
     }
     if (spd > 0) {
-      e.pos.x += mx * spd * dt; e.pos.z += mz * spd * dt; e.pos.y = terrainH(e.pos.x, e.pos.z);
-      if (e.state !== 'combat') { let dy = Math.atan2(mx, mz) - e.mesh.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.mesh.rotation.y += dy * Math.min(1, dt * 5); }
+      spd = navStep(e, mx, mz, spd, dt);                       // esquiva objetos y a otros personajes
+      if (e.state !== 'combat') { let dy = Math.atan2(e.navX, e.navZ) - e.mesh.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); e.mesh.rotation.y += dy * Math.min(1, dt * 5); }
     }
-    poseHumanoid(e, dt, spd > 0, spd);
+    poseHumanoid(e, dt, spd > 0.15, spd);
     e.mesh.position.copy(e.pos);
   }
   if (idleNear && !G.alerted && G.state === 'playing' && barkCd <= 0 && Math.random() < dt * 0.25) bark('idle', idleNear.e);
@@ -986,10 +998,14 @@ function updateEnemies(dt) {
     let spd = 0;
     if (engineer.free && !engineer.arrived) {
       const tx = engineer.tx - engineer.pos.x, tz = engineer.tz - engineer.pos.z, td = Math.hypot(tx, tz);
-      if (td < 1.2) { engineer.arrived = true; engineer.mesh.rotation.y = Math.PI; }
-      else { spd = 5.4; engineer.pos.x += tx / td * spd * dt; engineer.pos.z += tz / td * spd * dt; engineer.pos.y = terrainH(engineer.pos.x, engineer.pos.z); engineer.mesh.rotation.y = Math.atan2(tx, tz); }
+      if (td < 1.2 || (td < 3 && engineer.stuck > 1)) { engineer.arrived = true; engineer.stuck = 0; }
+      else {
+        spd = navStep(engineer, tx / td, tz / td, Math.min(5.2, 1.5 + td), dt);
+        engineer.stuck = spd < 0.6 ? (engineer.stuck || 0) + dt : 0;
+        let dy = Math.atan2(engineer.navX, engineer.navZ) - engineer.mesh.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); engineer.mesh.rotation.y += dy * Math.min(1, dt * 7);
+      }
     }
-    poseHumanoid(engineer, dt, spd > 0, spd); engineer.mesh.position.copy(engineer.pos);
+    poseHumanoid(engineer, dt, spd > 0.15, spd); engineer.mesh.position.copy(engineer.pos);
   }
 }
 function killEnemy(e, headshot) {
@@ -1056,7 +1072,7 @@ function scopedFov() { const w = curW(); return 2 * Math.atan(Math.tan(CFG.FOV *
 
 function fire() {
   const w = curW();
-  if (player.reloading || player.fireCd > 0 || player.busy > 0 || player.healing > 0 || G.missionOver) return;
+  if (player.reloading || player.fireCd > 0 || player.busy > 0 || player.healing > 0 || player.acting || G.missionOver) return;
   if (player.ammo[player.weapon] <= 0) { SFX.dry(); showMessage('CARGADOR VACÍO — [R] PARA RECARGAR', 1.5); player.fireCd = 0.3; return; }
   player.ammo[player.weapon]--; G.shots++; player.fireCd = w.cd;
   SFX.shot(w.id);
@@ -1368,6 +1384,7 @@ function updatePlayer(dt) {
   const st = STANCES[player.stance], w = curW();
   // ---- Movimiento ----
   let ix = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), iz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+  if (player.acting) { ix = 0; iz = 0; }                       // quieto mientras realiza una acción
   const moving = ix !== 0 || iz !== 0; player.moving = moving;
   if (ix && iz) { ix *= 0.7071; iz *= 0.7071; }
   const shift = keys.ShiftLeft || keys.ShiftRight, scoped = player.adsOn && w.scope;
@@ -1386,10 +1403,14 @@ function updatePlayer(dt) {
     const dx = px - c.x, dz = pz - c.z, d = Math.hypot(dx, dz), r = c.r + 0.4;
     if (d < r && d > 0.0001) { px = c.x + dx / d * r; pz = c.z + dz / d * r; }
   }
+  for (const o of solidCharacters()) {                          // no se atraviesa a las personas
+    const dx = px - o.pos.x, dz = pz - o.pos.z, d = Math.hypot(dx, dz);
+    if (d < 0.62 && d > 0.0001) { px = o.pos.x + dx / d * 0.62; pz = o.pos.z + dz / d * 0.62; }
+  }
   // ---- Salto, postura y altura de ojos ----
   if (!player.onGround) { player.vy -= 16 * dt; player.jumpY += player.vy * dt;
     if (player.jumpY <= 0) { player.jumpY = 0; player.vy = 0; player.onGround = true; SFX.land(); player.shake = Math.max(player.shake, 0.08); } }
-  player.eye = lerp(player.eye, STANCES[player.stance].eye, Math.min(1, dt * 9));
+  player.eye = lerp(player.eye, STANCES[player.stance].eye - (player.acting && player.acting.kneel && player.stance === 'stand' ? 0.55 : 0), Math.min(1, dt * 9));
   const ground = Math.max(terrainH(px, pz), CFG.WATER_Y - 0.75), tgt = ground + player.eye + player.jumpY;
   player.pos.set(px, player.onGround ? lerp(player.pos.y, tgt, Math.min(1, dt * 16)) : tgt, pz);
   // Pasos
@@ -1422,11 +1443,12 @@ function updatePlayer(dt) {
   player.gunKick = Math.max(0, player.gunKick - dt * 7);
   player.ads = lerp(player.ads, player.adsOn && !player.reloading && player.busy <= 0 ? 1 : 0, Math.min(1, dt * 12));
   const g = guns[player.weapon], ud = g.userData, a = player.ads, bob = moving && player.onGround ? 1 - a * 0.85 : 0;
-  const low = (player.reloading ? 0.16 : 0) + player.busy * 0.6 + (player.healing > 0 ? 0.3 : 0) + (player.sprinting ? 0.05 : 0);
+  const low = (player.reloading ? 0.16 : 0) + player.busy * 0.6 + (player.healing > 0 ? 0.3 : 0) + (player.sprinting ? 0.05 : 0) + (player.acting ? 0.34 : 0);
   g.position.set(lerp(ud.hip[0], ud.ads[0], a) + Math.sin(player.walkPhase * 0.5) * 0.007 * bob,
     lerp(ud.hip[1], ud.ads[1], a) + Math.abs(Math.sin(player.walkPhase * 0.5)) * 0.012 * bob - low + Math.sin(T * 1.6) * 0.0015,
     lerp(ud.hip[2], ud.ads[2], a) + player.gunKick * 0.06);
   g.rotation.set(player.gunKick * 0.05 - low * 2.2, player.sprinting ? 0.35 : 0, player.sprinting ? 0.15 : 0);
+  gunPolish(g, dt);                                             // inercia al girar, recarga y cerrojo
   g.visible = !(scoped && a > 0.85);
   muzzleFlash.position.set(g.position.x, g.position.y + 0.02, g.position.z + ud.muzzle);
   muzzleFlash.material.opacity = Math.max(0, muzzleFlash.material.opacity - dt * 22);
@@ -1756,7 +1778,8 @@ function updateWorld(dt) {
   if (au.fall > 0 && au.fall < 1) { au.fall = Math.min(1, au.fall + dt * 1.2); antennaGroup.rotation.z = -au.fall * au.fall * 1.25; }
   else if (G.antenna) au.led.visible = Math.sin(T * 6) > 0;
   // Sol y sombras siguen al jugador; el cielo sigue a la cámara
-  sun.target.position.set(Math.round(camera.position.x / 4) * 4, 0, Math.round(camera.position.z / 4) * 4);
+  const sc = shadowCenter();                                    // las sombras se centran donde se mira
+  sun.target.position.set(Math.round(sc.x / 4) * 4, 0, Math.round(sc.z / 4) * 4);
   sun.position.copy(sun.target.position).add(SUN_OFF);
   skyDome.position.copy(camera.position);
 }

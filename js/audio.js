@@ -1,8 +1,8 @@
 'use strict';
 /* =====================================================================
-   AUDIO v3
-   - Clips grabados (carpeta /audio) con efecto de lejanía: filtro,
-     volumen y paneo según la distancia, más un eco de valle.
+   AUDIO v4
+   - Clips grabados (carpeta /audio): suenan tal cual, sin eco ni filtros.
+     En combate solo cambia el volumen con la distancia y el lado (paneo).
    - Cola de voces sintetizadas (narrador, radio, ingeniera): cada frase
      termina antes de empezar la siguiente; cada personaje usa una voz
      distinta cuando el navegador tiene varias.
@@ -29,51 +29,41 @@ function loadClips() {
 }
 function clipDur(n) { return CLIPS[n]; }
 
-// Reproduce un clip. o.ent = personaje del que sale el sonido; o.far = oído de lejos (binoculares)
+// Reproduce un clip sin procesar. o.ent = personaje del que sale el sonido (solo para volumen y lado)
 function playClip(name, o) {
   o = o || {};
   if (!AC) return CLIPS[name];
-  const buf = clipBuf[name], base = o.vol || 1.6;
-  if (!buf) {                                        // respaldo sin efectos
+  const buf = clipBuf[name], base = o.vol || 1.25;
+  if (!buf) {                                        // respaldo con <audio>
     try {
-      const el = new Audio('audio/' + name + '.ogg'); el.volume = o.far ? 0.7 : 0.95;
+      const el = new Audio('audio/' + name + '.ogg'); el.volume = 1;
       const p = el.play(); if (p && p.catch) p.catch(() => {});
       activeClips.push({ el, name, ent: o.ent || null, base, combat: !!o.combat, end: AC.currentTime + CLIPS[name] });
     } catch (e) { /* sin audio */ }
     return CLIPS[name];
   }
   const src = AC.createBufferSource(); src.buffer = buf;
-  const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = o.far ? 240 : 90;
-  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.far ? 2600 : 8000;
-  const g = AC.createGain(); g.gain.value = base * (o.far ? 0.95 : 1);
-  const pan = AC.createStereoPanner ? AC.createStereoPanner() : null;
-  // Eco del valle
-  const dl = AC.createDelay(1); dl.delayTime.value = o.far ? 0.33 : 0.24;
-  const wet = AC.createBiquadFilter(); wet.type = 'lowpass'; wet.frequency.value = 1300;
-  const fb = AC.createGain(); fb.gain.value = o.far ? 0.3 : 0.2;
-  const echo = AC.createGain(); echo.gain.value = o.far ? 0.4 : 0.22;
-  src.connect(hp); hp.connect(lp); lp.connect(g);
+  const g = AC.createGain(); g.gain.value = base;
+  const pan = o.ent && AC.createStereoPanner ? AC.createStereoPanner() : null;
+  src.connect(g);
   if (pan) { g.connect(pan); pan.connect(master); } else g.connect(master);
-  g.connect(dl); dl.connect(wet); wet.connect(fb); fb.connect(dl); wet.connect(echo); echo.connect(master);
-  const c = { src, g, lp, pan, echo, name, ent: o.ent || null, base, combat: !!o.combat, far: !!o.far, end: AC.currentTime + buf.duration };
-  src.onended = () => { const i = activeClips.indexOf(c); if (i >= 0) activeClips.splice(i, 1); setTimeout(() => { try { echo.disconnect(); fb.disconnect(); } catch (e) { /* ya */ } }, 2500); };
+  const c = { src, g, pan, name, ent: o.ent || null, base, combat: !!o.combat, end: AC.currentTime + buf.duration };
+  src.onended = () => { const i = activeClips.indexOf(c); if (i >= 0) activeClips.splice(i, 1); };
   src.start();
   activeClips.push(c);
   return buf.duration;
 }
-// Ajusta volumen, filtro y paneo de cada clip según dónde está quien habla
+// Volumen y lado de cada clip según dónde está quien grita
 function updateClips() {
   if (!AC) return;
   for (let i = activeClips.length - 1; i >= 0; i--) {
     const c = activeClips[i];
     if (c.el) { if (AC.currentTime > c.end) activeClips.splice(i, 1); continue; }
-    if (!c.ent || c.far) continue;
+    if (!c.ent) continue;
     const dx = c.ent.pos.x - player.pos.x, dz = c.ent.pos.z - player.pos.z, dist = Math.hypot(dx, dz);
-    let vol = c.base * clamp(1.25 - dist / 95, 0.16, 1);
     if (c.ent.alive === false) { c.base *= 0.9; if (c.base < 0.03) { try { c.src.stop(); } catch (e) { /* ya */ } continue; } }
-    c.g.gain.value = vol;
-    c.lp.frequency.value = clamp(9000 - dist * 85, 1100, 9000);
-    if (c.pan) { const yaw = camera.rotation.y; c.pan.pan.value = clamp((dx * Math.cos(yaw) - dz * Math.sin(yaw)) / (dist + 4), -0.85, 0.85); }
+    c.g.gain.value = c.base * clamp(1.2 - dist / 150, 0.45, 1);
+    if (c.pan) { const yaw = camera.rotation.y; c.pan.pan.value = clamp((dx * Math.cos(yaw) - dz * Math.sin(yaw)) / (dist + 6), -0.7, 0.7); }
   }
 }
 function stopClips() {
@@ -97,9 +87,10 @@ function engine(v) {
     o1.start(); o2.start(); n.start();
     engNodes = { o1, o2, g };
   }
-  engNodes.g.gain.value = v * 0.16;
+  engNodes.g.gain.value = v * 0.14;
   engNodes.o1.frequency.value = 48 + v * 55; engNodes.o2.frequency.value = 24 + v * 27.5;
 }
+function doorSound() { noiseBurst({ freq: 900, freqEnd: 200, dur: 0.14, vol: 0.3 }); tone({ type: 'square', f0: 140, f1: 70, dur: 0.07, vol: 0.12 }); }
 
 /* ---------------- Voces sintetizadas en cola ---------------- */
 const VOICE = {
@@ -157,7 +148,7 @@ function speak(role, text, o) {
   o = o || {};
   if (role === 'enemy' || !VO.ok || !VOICE[role]) return;
   if (o.interrupt) shutUp();
-  if (VQ.q.length > 10) return;
+  if (VQ.q.length > 8) VQ.q.splice(0, VQ.q.length - 8);          // no acumular líneas viejas
   const parts = text.match(/[^.!?…]+[.!?…]*/g) || [text];
   parts.forEach((p, i) => { p = p.trim(); if (p) VQ.q.push({ role, text: p, o, first: i === 0, last: i === parts.length - 1 }); });
   pumpVoice();
@@ -187,6 +178,7 @@ function pumpVoice() {
     setTimeout(fin, 2800 + j.text.length * 120);       // por si el navegador no avisa del final
   } catch (e) { fin(); }
 }
+function voiceSpeaking(role) { return !!(VQ.cur && VQ.cur.role === role); }
 function radio(text, delay) {
   setTimeout(() => { if (['playing', 'intro', 'ph'].includes(G.state)) speak('radio', text); }, (delay || 0) * 1000);
 }
