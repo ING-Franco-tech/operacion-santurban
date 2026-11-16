@@ -1,0 +1,6 @@
+Texturas CC0 de Poly Haven:
+Aerial Grass Rock - Rob Tuytel: https://polyhaven.com/a/aerial_grass_rock
+Lichen Rock - Rico Cilliers: https://polyhaven.com/a/lichen_rock
+Licencia: https://polyhaven.com/license
+Mapas de color, normales OpenGL y rugosidad en 1K. Ajustes de color en el material.
+Las texturas no se presentan como fotografias tomadas en Santurban.
